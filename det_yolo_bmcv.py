@@ -21,6 +21,7 @@ import sophon.sail as sail
 import ctypes
 import struct
 import time
+import cv2
 
 class PreProcessor:
   """ Preprocessing class.
@@ -112,6 +113,20 @@ class Net:
   def cut(obj, sec):
     return [obj[i : i + sec] for i in range(0, len(obj), sec)]
 
+  def dis_image(img):
+    dis_img = sail.BMImage(Net.handle_, img.height(),
+                        img.width(),
+                        sail.Format.FORMAT_BGR_PLANAR, img.dtype())
+    Net.bmcv_.vpp_resize(img, dis_img, img.width(), img.height())
+    t_img_tensor = sail.Tensor(Net.handle_, [1, 3, img.height(), img.width()], sail.Dtype.BM_UINT8, True, False)
+    Net.bmcv_.bm_image_to_tensor(dis_img, t_img_tensor)
+    t_img_tensor.sync_d2s()
+    np_t_img_tensor = t_img_tensor.asnumpy()
+    np_t_img_tensor = np_t_img_tensor.transpose((0, 2, 3, 1))
+    np_t_img_tensor = np_t_img_tensor.reshape([img.height(), img.width(), 3])
+    cv2.imshow('det_result', np.uint8(np_t_img_tensor))
+    cv2.waitKey(10)
+
   def detect(self, video_path):
     # open a video to be decoded
     decoder = sail.Decoder(video_path, True, Net.tpu_id_)
@@ -200,8 +215,9 @@ class Net:
         top = int(top)
         right = int(right)
         bottom = int(bottom)
-        Net.bmcv_.rectangle(img, left, top, right - left + 1, bottom - top + 1, (255, 0, 0), 3)
-      Net.bmcv_.imwrite(os.path.join('result_imgs', str(frame_id) + '_video.jpg'), img)
+        Net.bmcv_.rectangle(img, left, top, right - left + 1, bottom - top + 1, (0, 255, 0), 3)
+      save_full_path = os.path.join('result_imgs', str(frame_id) + '_video.jpg')
+      Net.bmcv_.imwrite(save_full_path, img)
       frame_id += 1
 
 if __name__ == '__main__':
